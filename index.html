@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0b1220">
 <title>Oola Radio</title>
-<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Oola%20Radio%22%2C%22short_name%22%3A%22Radio%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230b1220%22%2C%22theme_color%22%3A%22%230b1220%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2522%2520viewBox%253D%25220%25200%2520100%2520100%2522%253E%253Crect%2520width%253D%2522100%2522%2520height%253D%2522100%2522%2520fill%253D%2522%2523f59e0b%2522%252F%253E%253Ctext%2520x%253D%252250%2522%2520y%253D%252268%2522%2520font-size%253D%252260%2522%2520text-anchor%253D%2522middle%2522%253E%25F0%259F%2593%25BB%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   :root{
@@ -18,7 +20,7 @@
   header .logo{font-size:24px;}
   header h1{font-size:17px;font-weight:700;}
   header .sub{font-size:11px;color:var(--muted);margin-top:1px;}
-  header .scan{margin-left:auto;background:var(--panel2);color:var(--accent2);border:1px solid var(--line);border-radius:20px;padding:7px 13px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;}
+  header .scan{margin-left:8px;background:var(--panel2);color:var(--accent2);border:1px solid var(--line);border-radius:20px;padding:7px 13px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;}
   header .scan:disabled{opacity:.5;}
 
   .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--line);}
@@ -77,13 +79,25 @@
   .modal button{flex:1;padding:13px;border-radius:12px;border:none;font-size:14px;font-weight:600;}
   .modal .cancel{background:var(--panel2);color:var(--text);border:1px solid var(--line);}
   .modal .save{background:var(--accent);color:#0b1220;}
+
+  .boost{width:46px;height:38px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);color:var(--muted);font-size:13px;font-weight:700;flex-shrink:0;}
+  .boost.on{background:var(--accent);color:#0b1220;border-color:var(--accent);}
+  .eq{display:flex;align-items:flex-end;gap:3px;height:26px;flex-shrink:0;}
+  .eq i{width:4px;background:var(--accent);border-radius:2px;animation:eqb 1s ease-in-out infinite;}
+  .eq i:nth-child(1){height:40%;animation-delay:0s}
+  .eq i:nth-child(2){height:90%;animation-delay:.2s}
+  .eq i:nth-child(3){height:60%;animation-delay:.4s}
+  .eq i:nth-child(4){height:80%;animation-delay:.1s}
+  @keyframes eqb{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1)}}
 </style>
 </head>
 <body>
 <header>
   <span class="logo">📻</span>
-  <div><h1>Oola Radio</h1><div class="sub">Internet radio</div></div>
-  <button class="scan" id="scanBtn">🔄 Scan Uganda</button>
+  <div><h1>Oola Radio</h1><div class="sub">Uganda & worldwide</div></div>
+  <div style="flex:1"></div>
+  <button class="scan" id="installBtn" style="display:none">⬇️ Install</button>
+  <button class="scan" id="scanBtn">🔄 Scan</button>
 </header>
 
 <div class="tabs">
@@ -93,7 +107,7 @@
 </div>
 
 <div class="searchbar show" id="searchbar">
-  <input type="text" id="searchIn" placeholder="Search e.g. Mega, Pacis, Rupiny, Lira…">
+  <input type="text" id="searchIn" placeholder="Search any station — Mega, BBC, Jazz, Nigeria…">
   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
     <button class="add-inline chip" data-q="Gulu">Gulu</button>
     <button class="add-inline chip" data-q="Lira">Lira</button>
@@ -109,10 +123,12 @@
   <div class="now">
     <div class="art" id="art">📻</div>
     <div class="info"><div class="t" id="nowName">Nothing playing</div><div class="s" id="nowStatus">Tap a station to start</div></div>
+    <div class="eq" id="eq" style="display:none"><i></i><i></i><i></i><i></i></div>
   </div>
   <div class="controls">
     <button class="play" id="playBtn" disabled>▶</button>
     <div class="vol-wrap"><span class="vol-ico">🔊</span><input type="range" id="vol" min="0" max="100" value="80"></div>
+    <button class="boost" id="boostBtn" title="Volume boost">1x</button>
   </div>
 </div>
 
@@ -183,7 +199,8 @@ async function rgSearch(term){
       const id = url.split('/').pop();
       if(!id) continue;
       out.push({ id:'rg_'+id, name:(src.title||'Unknown').trim(),
-        desc:(src.subtitle||'Radio Garden')+' · relay', url:rgStreamUrl(id), fav:'', icon:'📻', votes:0 });
+        desc:(src.subtitle||'Radio Garden')+' · relay', url:rgStreamUrl(id), fav:'', icon:'📻', votes:0,
+        world: !/uganda/i.test(src.subtitle||'') });
     }
     return out;
   }catch(e){ return []; }
@@ -222,7 +239,7 @@ function getKV(k){return new Promise(r=>{const q=st('kv').get(k);q.onsuccess=()=
 // ===== State =====
 let stations=[], favorites=[], customs=[], current=null, tab='stations', filter='';
 let searchResults=[], searching=false, searchTimer=null;
-const audio=document.getElementById('audio');
+let audio=document.getElementById('audio');
 const listEl=document.getElementById('list');
 const playBtn=document.getElementById('playBtn');
 const volEl=document.getElementById('vol');
@@ -232,10 +249,10 @@ const artEl=document.getElementById('art');
 const scanBtn=document.getElementById('scanBtn');
 const searchbar=document.getElementById('searchbar');
 
-function normalize(s){
+function normalize(s, world){
   return { id:'rb_'+s.stationuuid, name:(s.name||'Unknown').trim(),
-    desc:[s.codec,s.bitrate?s.bitrate+'kbps':'',s.tags?s.tags.split(',')[0]:''].filter(Boolean).join(' · ')||'Uganda',
-    url:s.url_resolved||s.url, fav:s.favicon||'', icon:'📻', votes:s.votes||0 };
+    desc:[world?(s.country||''):'',s.codec,s.bitrate?s.bitrate+'kbps':'',s.tags?s.tags.split(',')[0]:''].filter(Boolean).join(' · ')||(world?(s.country||'World'):'Uganda'),
+    url:s.url_resolved||s.url, fav:s.favicon||'', icon: world?'🌍':'📻', votes:s.votes||0, world:!!world };
 }
 
 // ===== Scan =====
@@ -267,6 +284,16 @@ async function scan(){
       }
     }
     for(const s of NORTH_SEEDS){ if(!seen.has(s.name.toLowerCase())){ seen.add(s.name.toLowerCase()); stations.push(s);} }
+    // Popular worldwide stations (BBC, international music, African stations, etc.)
+    renderStatus('<div class="spin"></div><div>Adding popular worldwide stations…</div>');
+    try{
+      const world = await apiFetch('/json/stations/topvote/80?hidebroken=true');
+      for(const s of world){
+        const n=(s.name||'').trim().toLowerCase();
+        if(!n||seen.has(n)) continue; if(!(s.url_resolved||s.url)) continue;
+        seen.add(n); stations.push(normalize(s,true));
+      }
+    }catch(e){}
     // Sort: most-voted first, but everything is present
     stations.sort((a,b)=>b.votes-a.votes);
     await clearStore('cache');
@@ -302,7 +329,11 @@ function render(){
     if(!items.length){
       renderStatus('<div>No matches for “'+esc(filter)+'” yet.</div><div style="margin-top:6px">'+(searching?'Searching online…':'Try a shorter word, or add its URL in “My URLs”.')+'</div>'); return;
     }
-    listEl.innerHTML = (searching?'<div class="status-row" style="padding:8px"><div class="spin" style="width:16px;height:16px;margin:0"></div> searching online…</div>':'') + head + items.map(s=>card(s,{fav:true})).join('');
+    const ug=items.filter(s=>!s.world), wd=items.filter(s=>s.world);
+    let body='';
+    if(ug.length) body+='<div class="section-h">🇺🇬 Uganda ('+ug.length+')</div>'+ug.map(s=>card(s,{fav:true})).join('');
+    if(wd.length) body+='<div class="section-h">🌍 Worldwide ('+wd.length+')</div>'+wd.map(s=>card(s,{fav:true})).join('');
+    listEl.innerHTML = (searching?'<div class="status-row" style="padding:8px"><div class="spin" style="width:16px;height:16px;margin:0"></div> searching online…</div>':'') + head + body;
   } else if(tab==='favorites'){
     if(!favorites.length){ renderStatus('<div>No favorites yet.</div><div style="margin-top:6px">Tap the ☆ on any station to save it here.</div>'); return; }
     listEl.innerHTML = favorites.map(s=>card(s,{fav:true})).join('');
@@ -339,6 +370,49 @@ function allStations(){return [...stations,...searchResults,...favorites,...cust
 
 // ===== Playback =====
 let retryCount=0, retryTimer=null, stallTimer=null, wasHttp=false;
+// --- volume boost via Web Audio gain ---
+const BOOST_STEPS=[1,1.5,2,3];
+let boost=1, actx=null, srcNode=null, gainNode=null;
+const boostBtn=document.getElementById('boostBtn');
+function buildChain(){
+  if(actx) return;
+  try{
+    actx=new (window.AudioContext||window.webkitAudioContext)();
+    srcNode=actx.createMediaElementSource(audio);
+    gainNode=actx.createGain();
+    srcNode.connect(gainNode); gainNode.connect(actx.destination);
+  }catch(e){ actx=null; }
+}
+function applyBoost(){
+  boostBtn.textContent=(boost%1?boost.toFixed(1):boost)+'x';
+  boostBtn.classList.toggle('on',boost>1);
+  if(gainNode) gainNode.gain.value=boost;
+}
+function rebuildAudioElement(){
+  // drop the Web Audio chain entirely (some streams go silent inside it)
+  try{ if(actx) actx.close(); }catch(e){}
+  actx=null; srcNode=null; gainNode=null;
+  const old=audio; const wasPlaying=current&&!old.paused;
+  old.pause(); old.removeAttribute('src'); old.load();
+  const el=document.createElement('audio');
+  old.replaceWith(el);
+  audio=el; attachAudioEvents();
+  audio.volume=volEl.value/100;
+  if(current){ audio.src=playableUrl(current.url); if(wasPlaying) audio.play().catch(()=>{}); }
+}
+boostBtn.onclick=()=>{
+  const i=BOOST_STEPS.indexOf(boost);
+  boost=BOOST_STEPS[(i+1)%BOOST_STEPS.length];
+  if(boost>1){
+    buildChain();
+    if(actx&&actx.state==='suspended') actx.resume();
+    if(!actx){ boost=1; alert('Volume boost not supported on this browser.'); }
+  } else if(actx){
+    rebuildAudioElement();
+  }
+  applyBoost();
+  setKV('boost',boost);
+};
 function playableUrl(u){
   wasHttp = /^http:\/\//i.test(u);
   // HTTPS pages can't play http:// audio (browser blocks it) — try the https variant
@@ -379,11 +453,14 @@ function armStallWatchdog(){
 }
 function setStatus(t,c){nowStatus.textContent=t;nowStatus.className='s'+(c?' '+c:'');}
 playBtn.onclick=()=>{ if(!current)return; audio.paused?audio.play().catch(()=>setStatus('Could not play stream','err')):audio.pause(); };
-audio.addEventListener('playing',()=>{retryCount=0;clearTimeout(stallTimer);setStatus('● Live','live');playBtn.textContent='❚❚';render();mediaSession();});
-audio.addEventListener('pause',()=>{if(current)setStatus('Paused','');playBtn.textContent='▶';render();});
-audio.addEventListener('waiting',()=>{setStatus('Buffering…','buffering');armStallWatchdog();});
-audio.addEventListener('stalled',()=>{setStatus('Buffering…','buffering');armStallWatchdog();});
-audio.addEventListener('error',()=>{ if(current) reconnect(); });
+function attachAudioEvents(){
+  audio.addEventListener('playing',()=>{retryCount=0;clearTimeout(stallTimer);setStatus('● Live','live');playBtn.textContent='❚❚';document.getElementById('eq').style.display='flex';render();mediaSession();});
+  audio.addEventListener('pause',()=>{if(current)setStatus('Paused','');playBtn.textContent='▶';document.getElementById('eq').style.display='none';render();});
+  audio.addEventListener('waiting',()=>{setStatus('Buffering…','buffering');armStallWatchdog();});
+  audio.addEventListener('stalled',()=>{setStatus('Buffering…','buffering');armStallWatchdog();});
+  audio.addEventListener('error',()=>{ if(current){document.getElementById('eq').style.display='none'; reconnect();} });
+}
+attachAudioEvents();
 volEl.addEventListener('input',()=>{audio.volume=volEl.value/100;setKV('vol',volEl.value);});
 
 // ===== Favorites =====
@@ -439,7 +516,7 @@ async function onlineSearch(term){
   searching=true; render();
   try{
     const [rbRaw, rgRes] = await Promise.all([
-      apiFetch('/json/stations/search?country=Uganda&hidebroken=true&limit=30&name='+encodeURIComponent(term)).catch(()=>[]),
+      apiFetch('/json/stations/search?hidebroken=true&order=votes&reverse=true&limit=30&name='+encodeURIComponent(term)).catch(()=>[]),
       rgSearch(term)
     ]);
     if(filter.trim()!==term){ searching=false; return; }
@@ -448,7 +525,7 @@ async function onlineSearch(term){
     for(const s of rbRaw){
       const n=(s.name||'').trim().toLowerCase();
       if(!n||seen.has(n)) continue; if(!(s.url_resolved||s.url)) continue;
-      seen.add(n); searchResults.push(normalize(s));
+      seen.add(n); searchResults.push(normalize(s, (s.countrycode||'')!=='UG'));
     }
     for(const s of rgRes){
       const n=s.name.toLowerCase();
@@ -481,19 +558,19 @@ document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
   if(!stations.length && navigator.onLine){ scan(); }
 })();
 
-// ===== Service worker =====
-if('serviceWorker'in navigator){
-  const sw=`const C='oola-radio-v3';
-    self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));});
-    self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
-    self.addEventListener('fetch',e=>{
-      const u=e.request.url;
-      if(e.request.destination==='audio'||/stream|\\.mp3|\\.aac|icecast|shoutcast|radio-browser|radio\\.garden/i.test(u))return;
-      if(e.request.mode==='navigate'){e.respondWith(fetch(e.request).catch(()=>caches.match('./')));return;}
-      e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{const cp=res.clone();caches.open(C).then(c=>c.put(e.request,cp));return res;}).catch(()=>r)));
-    });`;
-  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
-}
+// ===== Service worker (real file — required for install) + install prompt =====
+if('serviceWorker'in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt', e=>{
+  e.preventDefault(); deferredPrompt=e;
+  const b=document.getElementById('installBtn'); if(b) b.style.display='inline-flex';
+});
+window.addEventListener('appinstalled', ()=>{ const b=document.getElementById('installBtn'); if(b) b.style.display='none'; });
+document.getElementById('installBtn').onclick=async()=>{
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null;
+  document.getElementById('installBtn').style.display='none';
+};
 </script>
 </body>
 </html>
