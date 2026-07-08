@@ -94,6 +94,13 @@
 
 <div class="searchbar show" id="searchbar">
   <input type="text" id="searchIn" placeholder="Search e.g. Mega, Pacis, Rupiny, Lira…">
+  <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+    <button class="add-inline chip" data-q="Gulu">Gulu</button>
+    <button class="add-inline chip" data-q="Lira">Lira</button>
+    <button class="add-inline chip" data-q="Arua">Arua</button>
+    <button class="add-inline chip" data-q="Kitgum">Kitgum</button>
+    <button class="add-inline chip" data-q="Acholi">Acholi</button>
+  </div>
 </div>
 
 <div class="list" id="list"></div>
@@ -142,6 +149,34 @@ async function apiFetch(path){
   }
   throw lastErr || new Error('All API hosts failed');
 }
+
+// ===== Radio Garden (second source: HTTPS relay, has many regional stations) =====
+const RG = 'https://radio.garden';
+function rgStreamUrl(id){ return RG + '/api/ara/content/listen/' + id + '/channel.mp3'; }
+async function rgSearch(term){
+  try{
+    const r = await fetch(RG + '/api/search?q=' + encodeURIComponent(term));
+    if(!r.ok) return [];
+    const j = await r.json();
+    const hits = (j.hits && j.hits.hits) ? j.hits.hits : [];
+    const out = [];
+    for(const h of hits){
+      const src = h._source || h.source || {};
+      if((src.type||'').toLowerCase()!=='channel') continue;
+      const url = src.url || '';
+      const id = url.split('/').pop();
+      if(!id) continue;
+      out.push({ id:'rg_'+id, name:(src.title||'Unknown').trim(),
+        desc:(src.subtitle||'Radio Garden')+' · relay', url:rgStreamUrl(id), fav:'', icon:'📻', votes:0 });
+    }
+    return out;
+  }catch(e){ return []; }
+}
+
+// Seeded northern Uganda stations via Radio Garden HTTPS relay (known-good IDs)
+const NORTH_SEEDS = [
+  { id:'rg_DCiSSzLz', name:'102 Mega FM', desc:'Gulu · relay', url:rgStreamUrl('DCiSSzLz'), fav:'', icon:'📻', votes:9999 },
+];
 
 // ===== IndexedDB =====
 const DB_NAME='oola-radio', DB_VER=2; let db;
@@ -194,6 +229,20 @@ async function scan(){
       if(!n||seen.has(n)) continue; if(!(s.url_resolved||s.url)) continue;
       seen.add(n); stations.push(normalize(s));
     }
+    // Sweep Radio Garden for northern Uganda towns (HTTPS relay streams)
+    renderStatus('<div class="spin"></div><div>Scanning northern Uganda stations…</div>');
+    const towns=['Gulu','Lira','Arua','Kitgum','Moyo','Soroti','Uganda'];
+    for(const t of towns){
+      const rs = await rgSearch(t);
+      for(const s of rs){
+        const n=s.name.toLowerCase();
+        if(seen.has(n)) continue;
+        // only keep results whose subtitle mentions Uganda (rg search is global)
+        if(!/uganda/i.test(s.desc)) continue;
+        seen.add(n); stations.push(s);
+      }
+    }
+    for(const s of NORTH_SEEDS){ if(!seen.has(s.name.toLowerCase())){ seen.add(s.name.toLowerCase()); stations.push(s);} }
     // Sort: most-voted first, but everything is present
     stations.sort((a,b)=>b.votes-a.votes);
     await clearStore('cache');
@@ -265,22 +314,52 @@ function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','
 function allStations(){return [...stations,...searchResults,...favorites,...customs];}
 
 // ===== Playback =====
+let retryCount=0, retryTimer=null, stallTimer=null, wasHttp=false;
+function playableUrl(u){
+  wasHttp = /^http:\/\//i.test(u);
+  // HTTPS pages can't play http:// audio (browser blocks it) — try the https variant
+  if(location.protocol==='https:' && wasHttp) return u.replace(/^http:/i,'https:');
+  return u;
+}
+function bust(u){ return u + (u.includes('?')?'&':'?') + '_t=' + Date.now(); }
 function select(id){
   const s=allStations().find(x=>x.id===id); if(!s)return;
-  current=s; audio.src=s.url;
+  current=s; retryCount=0; clearTimeout(retryTimer);
+  audio.src = playableUrl(s.url);
   nowName.textContent=s.name;
   artEl.innerHTML = s.fav?`<img src="${esc(s.fav)}" onerror="this.parentNode.textContent='📻'">`:'📻';
   setStatus('Connecting…','buffering'); playBtn.disabled=false;
   audio.play().catch(()=>setStatus('Tap ▶ to start',''));
   setKV('last',id); render(); mediaSession();
 }
+function reconnect(){
+  if(!current) return;
+  if(retryCount>=3){
+    if(wasHttp && location.protocol==='https:')
+      setStatus('Station uses an insecure (http) stream — blocked by the browser','err');
+    else
+      setStatus('Stream unavailable — try another','err');
+    playBtn.textContent='▶'; render(); return;
+  }
+  retryCount++;
+  setStatus('Reconnecting… ('+retryCount+'/3)','buffering');
+  clearTimeout(retryTimer);
+  retryTimer=setTimeout(()=>{
+    audio.src = bust(playableUrl(current.url));
+    audio.play().catch(()=>{});
+  }, 1200*retryCount);
+}
+function armStallWatchdog(){
+  clearTimeout(stallTimer);
+  stallTimer=setTimeout(()=>{ if(current && !audio.paused && audio.readyState<3) reconnect(); }, 15000);
+}
 function setStatus(t,c){nowStatus.textContent=t;nowStatus.className='s'+(c?' '+c:'');}
 playBtn.onclick=()=>{ if(!current)return; audio.paused?audio.play().catch(()=>setStatus('Could not play stream','err')):audio.pause(); };
-audio.addEventListener('playing',()=>{setStatus('● Live','live');playBtn.textContent='❚❚';render();mediaSession();});
+audio.addEventListener('playing',()=>{retryCount=0;clearTimeout(stallTimer);setStatus('● Live','live');playBtn.textContent='❚❚';render();mediaSession();});
 audio.addEventListener('pause',()=>{if(current)setStatus('Paused','');playBtn.textContent='▶';render();});
-audio.addEventListener('waiting',()=>setStatus('Buffering…','buffering'));
-audio.addEventListener('stalled',()=>setStatus('Buffering…','buffering'));
-audio.addEventListener('error',()=>{setStatus('Stream unavailable — try another','err');playBtn.textContent='▶';render();});
+audio.addEventListener('waiting',()=>{setStatus('Buffering…','buffering');armStallWatchdog();});
+audio.addEventListener('stalled',()=>{setStatus('Buffering…','buffering');armStallWatchdog();});
+audio.addEventListener('error',()=>{ if(current) reconnect(); });
 volEl.addEventListener('input',()=>{audio.volume=volEl.value/100;setKV('vol',volEl.value);});
 
 // ===== Favorites =====
@@ -335,20 +414,32 @@ document.getElementById('searchIn').addEventListener('input',e=>{
 async function onlineSearch(term){
   searching=true; render();
   try{
-    const raw = await apiFetch('/json/stations/search?country=Uganda&hidebroken=true&limit=30&name='+encodeURIComponent(term));
-    // only keep if user hasn't changed the query in the meantime
+    const [rbRaw, rgRes] = await Promise.all([
+      apiFetch('/json/stations/search?country=Uganda&hidebroken=true&limit=30&name='+encodeURIComponent(term)).catch(()=>[]),
+      rgSearch(term)
+    ]);
     if(filter.trim()!==term){ searching=false; return; }
     const seen=new Set(stations.map(s=>s.name.toLowerCase()));
     searchResults=[];
-    for(const s of raw){
+    for(const s of rbRaw){
       const n=(s.name||'').trim().toLowerCase();
       if(!n||seen.has(n)) continue; if(!(s.url_resolved||s.url)) continue;
       seen.add(n); searchResults.push(normalize(s));
+    }
+    for(const s of rgRes){
+      const n=s.name.toLowerCase();
+      if(seen.has(n)) continue;
+      seen.add(n); searchResults.push(s);
     }
   }catch(e){ searchResults=[]; }
   finally{ searching=false; render(); }
 }
 scanBtn.onclick=scan;
+document.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+  const q=c.dataset.q;
+  document.getElementById('searchIn').value=q; filter=q;
+  render(); clearTimeout(searchTimer); onlineSearch(q);
+});
 
 // ===== Init =====
 (async()=>{
@@ -363,12 +454,12 @@ scanBtn.onclick=scan;
 
 // ===== Service worker =====
 if('serviceWorker'in navigator){
-  const sw=`const C='oola-radio-v2';
+  const sw=`const C='oola-radio-v3';
     self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));});
     self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
     self.addEventListener('fetch',e=>{
       const u=e.request.url;
-      if(e.request.destination==='audio'||/stream|\\.mp3|\\.aac|icecast|shoutcast|radio-browser/i.test(u))return;
+      if(e.request.destination==='audio'||/stream|\\.mp3|\\.aac|icecast|shoutcast|radio-browser|radio\\.garden/i.test(u))return;
       if(e.request.mode==='navigate'){e.respondWith(fetch(e.request).catch(()=>caches.match('./')));return;}
       e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{const cp=res.clone();caches.open(C).then(c=>c.put(e.request,cp));return res;}).catch(()=>r)));
     });`;
