@@ -160,18 +160,19 @@ const RG_PROXY = 'https://script.google.com/macros/s/AKfycbzKNi1GZUNpaqbtnC8QfkE
 function rgStreamUrl(id){ return RG + '/api/ara/content/listen/' + id + '/channel.mp3'; }
 async function rgSearch(term){
   let j = null;
-  // try direct first (works if RG ever enables CORS), then the proxy
-  try{
-    const r = await fetch(RG + '/api/search?q=' + encodeURIComponent(term));
-    if(r.ok) j = await r.json();
-  }catch(e){}
-  if(!j && RG_PROXY){
+  // Radio Garden blocks direct browser calls (CORS), so use the proxy when set
+  if(RG_PROXY){
     try{
       const r = await fetch(RG_PROXY + '?q=' + encodeURIComponent(term));
       if(r.ok) j = await r.json();
     }catch(e){}
+  } else {
+    try{
+      const r = await fetch(RG + '/api/search?q=' + encodeURIComponent(term));
+      if(r.ok) j = await r.json();
+    }catch(e){}
   }
-  if(!j) return [];
+  if(!j || j.error) return [];
   try{
     const hits = (j.hits && j.hits.hits) ? j.hits.hits : [];
     const out = [];
