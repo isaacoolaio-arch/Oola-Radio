@@ -188,9 +188,17 @@ async function rgSearch(term){
   }catch(e){ return []; }
 }
 
-// Seeded northern Uganda stations via Radio Garden HTTPS relay (known-good IDs)
+// Seeded northern Uganda stations via Radio Garden HTTPS relay (verified IDs)
 const NORTH_SEEDS = [
-  { id:'rg_DCiSSzLz', name:'102 Mega FM', desc:'Gulu · relay', url:rgStreamUrl('DCiSSzLz'), fav:'', icon:'📻', votes:9999 },
+  { id:'rg_DCiSSzLz', name:'102 Mega FM',              desc:'Gulu · relay',    url:rgStreamUrl('DCiSSzLz'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_1jR0KlL2', name:'Radio Rupiny 95.7 FM',     desc:'Gulu · relay',    url:rgStreamUrl('1jR0KlL2'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_VVPJwFJp', name:'Radio Pacis Gulu 101.4 FM',desc:'Gulu · relay',    url:rgStreamUrl('VVPJwFJp'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_9FGZeJKn', name:'Radio Wa FM 89.8',         desc:'Lira · relay',    url:rgStreamUrl('9FGZeJKn'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_RWW0UXvX', name:'Voice of Lango 88.0 FM',   desc:'Lira · relay',    url:rgStreamUrl('RWW0UXvX'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_LHckS4Xk', name:'Radio Unity FM 97.7',      desc:'Lira · relay',    url:rgStreamUrl('LHckS4Xk'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_VC9m2aY2', name:'Radio Pacis FM 90.9',      desc:'Arua · relay',    url:rgStreamUrl('VC9m2aY2'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_E1SQZTJa', name:'Radio Pacis FM 94.5',      desc:'Arua · relay',    url:rgStreamUrl('E1SQZTJa'), fav:'', icon:'📻', votes:5000 },
+  { id:'rg_bFavoBLf', name:'Radio Paidha FM 87.8',     desc:'Paidha (West Nile) · relay', url:rgStreamUrl('bFavoBLf'), fav:'', icon:'📻', votes:5000 },
 ];
 
 // ===== IndexedDB =====
