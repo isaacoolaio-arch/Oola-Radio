@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0b1220">
+<title>Oola Radio</title>
+<link rel="manifest" href="data:application/json,%7B%22name%22%3A%22Oola%20Radio%22%2C%22short_name%22%3A%22Radio%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230b1220%22%2C%22theme_color%22%3A%22%230b1220%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2522http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2522%2520viewBox%253D%25220%25200%2520100%2520100%2522%253E%253Crect%2520width%253D%2522100%2522%2520height%253D%2522100%2522%2520fill%253D%2522%2523f59e0b%2522%252F%253E%253Ctext%2520x%253D%252250%2522%2520y%253D%252268%2522%2520font-size%253D%252260%2522%2520text-anchor%253D%2522middle%2522%253E%25F0%259F%2593%25BB%253C%252Ftext%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  :root{
+    --bg:#0b1220; --panel:#121c30; --panel2:#1a2740; --accent:#f59e0b; --accent2:#fbbf24;
+    --text:#e8eefc; --muted:#8494b4; --line:#24324f; --green:#34d399; --red:#f87171;
+  }
+  html,body{height:100%;}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+  header{padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);background:var(--panel);}
+  header .logo{font-size:24px;}
+  header h1{font-size:17px;font-weight:700;}
+  header .sub{font-size:11px;color:var(--muted);margin-top:1px;}
+  header .scan{margin-left:auto;background:var(--panel2);color:var(--accent2);border:1px solid var(--line);border-radius:20px;padding:7px 13px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;}
+  header .scan:disabled{opacity:.5;}
+
+  .tabs{display:flex;background:var(--panel);border-bottom:1px solid var(--line);}
+  .tabs button{flex:1;background:none;border:none;color:var(--muted);padding:11px;font-size:13px;font-weight:600;border-bottom:2px solid transparent;}
+  .tabs button.on{color:var(--accent2);border-bottom-color:var(--accent);}
+
+  .searchbar{padding:10px 12px 4px;display:none;}
+  .searchbar.show{display:block;}
+  .searchbar input{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--text);font-size:14px;}
+
+  .list{flex:1;overflow-y:auto;padding:8px 12px 12px;}
+  .status-row{text-align:center;color:var(--muted);font-size:13px;padding:22px 12px;line-height:1.5;}
+  .status-row .spin{display:inline-block;width:22px;height:22px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;margin-bottom:8px;}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .add-inline{background:var(--panel2);color:var(--accent2);border:1px solid var(--line);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;}
+  .section-h{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin:10px 4px 8px;display:flex;justify-content:space-between;align-items:center;}
+
+  .station{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 13px;margin-bottom:8px;}
+  .station.active{border-color:var(--accent);background:var(--panel2);}
+  .station .ico{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,#2a3a5c,#16233c);display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0;overflow:hidden;}
+  .station .ico img{width:100%;height:100%;object-fit:cover;}
+  .station.active .ico{background:linear-gradient(135deg,var(--accent),var(--accent2));}
+  .station .tap{display:flex;align-items:center;gap:11px;flex:1;min-width:0;}
+  .station .meta{flex:1;min-width:0;}
+  .station .name{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .station .desc{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .station .fav,.station .del{background:transparent;border:none;font-size:17px;padding:4px 6px;flex-shrink:0;color:var(--muted);}
+  .station .fav.on{color:var(--accent);}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  .player{background:var(--panel);border-top:1px solid var(--line);padding:13px 18px calc(15px + env(safe-area-inset-bottom));}
+  .now{display:flex;align-items:center;gap:12px;margin-bottom:13px;}
+  .now .art{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:21px;flex-shrink:0;overflow:hidden;}
+  .now .art img{width:100%;height:100%;object-fit:cover;}
+  .now .info{flex:1;min-width:0;}
+  .now .info .t{font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .now .info .s{font-size:12px;color:var(--muted);margin-top:2px;}
+  .now .info .s.buffering{color:var(--accent2);} .now .info .s.err{color:var(--red);} .now .info .s.live{color:var(--green);}
+  .controls{display:flex;align-items:center;gap:14px;}
+  .play{width:56px;height:56px;border-radius:50%;background:var(--accent);border:none;color:#0b1220;font-size:23px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .play:disabled{opacity:.5;}
+  .vol-wrap{flex:1;display:flex;align-items:center;gap:10px;}
+  .vol-ico{font-size:17px;color:var(--muted);}
+  input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:3px;background:var(--line);outline:none;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:20px;height:20px;border-radius:50%;background:var(--accent2);}
+
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;padding:20px;z-index:50;}
+  .modal-bg.show{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:20px;width:100%;max-width:380px;}
+  .modal h3{font-size:17px;margin-bottom:4px;}
+  .modal p{font-size:12px;color:var(--muted);margin-bottom:8px;}
+  .modal label{font-size:12px;color:var(--muted);display:block;margin:12px 0 5px;}
+  .modal input[type=text]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;color:var(--text);font-size:14px;}
+  .modal .row{display:flex;gap:10px;margin-top:20px;}
+  .modal button{flex:1;padding:13px;border-radius:12px;border:none;font-size:14px;font-weight:600;}
+  .modal .cancel{background:var(--panel2);color:var(--text);border:1px solid var(--line);}
+  .modal .save{background:var(--accent);color:#0b1220;}
+</style>
+</head>
+<body>
+<header>
+  <span class="logo">📻</span>
+  <div><h1>Oola Radio</h1><div class="sub">Internet radio</div></div>
+  <button class="scan" id="scanBtn">🔄 Scan Uganda</button>
+</header>
+
+<div class="tabs">
+  <button class="on" data-tab="stations">Stations</button>
+  <button data-tab="favorites">Favorites</button>
+  <button data-tab="mine">My URLs</button>
+</div>
+
+<div class="searchbar show" id="searchbar">
+  <input type="text" id="searchIn" placeholder="Filter stations by name…">
+</div>
+
+<div class="list" id="list"></div>
+
+<div class="player">
+  <div class="now">
+    <div class="art" id="art">📻</div>
+    <div class="info"><div class="t" id="nowName">Nothing playing</div><div class="s" id="nowStatus">Tap a station to start</div></div>
+  </div>
+  <div class="controls">
+    <button class="play" id="playBtn" disabled>▶</button>
+    <div class="vol-wrap"><span class="vol-ico">🔊</span><input type="range" id="vol" min="0" max="100" value="80"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3>Add Station</h3>
+    <p>Enter a name and stream URL (ends in .mp3, .aac, or a stream path).</p>
+    <label>Station name</label>
+    <input type="text" id="inName" placeholder="e.g. My Local FM">
+    <label>Stream URL</label>
+    <input type="text" id="inUrl" placeholder="https://…stream">
+    <div class="row"><button class="cancel" id="cancelBtn">Cancel</button><button class="save" id="saveBtn">Save</button></div>
+  </div>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+// ===== Radio Browser API (community DB of real internet-radio streams) =====
+const API_HOSTS = [
+  'https://de1.api.radio-browser.info',
+  'https://at1.api.radio-browser.info',
+  'https://nl1.api.radio-browser.info',
+  'https://fi1.api.radio-browser.info'
+];
+async function apiFetch(path){
+  let lastErr;
+  for(const host of API_HOSTS){
+    try{
+      const r = await fetch(host + path, { headers:{'User-Agent':'OolaRadio/1.0'} });
+      if(r.ok) return await r.json();
+      lastErr = new Error('HTTP '+r.status);
+    }catch(e){ lastErr = e; }
+  }
+  throw lastErr || new Error('All API hosts failed');
+}
+
+// ===== IndexedDB =====
+const DB_NAME='oola-radio', DB_VER=2; let db;
+function openDB(){return new Promise((res,rej)=>{const r=indexedDB.open(DB_NAME,DB_VER);
+  r.onupgradeneeded=e=>{const d=e.target.result;
+    if(!d.objectStoreNames.contains('cache'))d.createObjectStore('cache',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('favorites'))d.createObjectStore('favorites',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('custom'))d.createObjectStore('custom',{keyPath:'id'});
+    if(!d.objectStoreNames.contains('kv'))d.createObjectStore('kv',{keyPath:'k'});};
+  r.onsuccess=e=>{db=e.target.result;res();}; r.onerror=e=>rej(e);});}
+function st(s,m='readonly'){return db.transaction(s,m).objectStore(s);}
+function getAll(s){return new Promise(r=>{const q=st(s).getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>r([]);});}
+function put(s,o){return new Promise(r=>{const q=st(s,'readwrite').put(o);q.onsuccess=r;q.onerror=r;});}
+function del(s,id){return new Promise(r=>{const q=st(s,'readwrite').delete(id);q.onsuccess=r;q.onerror=r;});}
+function clearStore(s){return new Promise(r=>{const q=st(s,'readwrite').clear();q.onsuccess=r;q.onerror=r;});}
+function setKV(k,v){return new Promise(r=>{const q=st('kv','readwrite').put({k,v});q.onsuccess=r;q.onerror=r;});}
+function getKV(k){return new Promise(r=>{const q=st('kv').get(k);q.onsuccess=()=>r(q.result?q.result.v:null);q.onerror=()=>r(null);});}
+
+// ===== State =====
+let stations=[], favorites=[], customs=[], current=null, tab='stations', filter='';
+const audio=document.getElementById('audio');
+const listEl=document.getElementById('list');
+const playBtn=document.getElementById('playBtn');
+const volEl=document.getElementById('vol');
+const nowName=document.getElementById('nowName');
+const nowStatus=document.getElementById('nowStatus');
+const artEl=document.getElementById('art');
+const scanBtn=document.getElementById('scanBtn');
+const searchbar=document.getElementById('searchbar');
+
+function normalize(s){
+  return { id:'rb_'+s.stationuuid, name:(s.name||'Unknown').trim(),
+    desc:[s.codec,s.bitrate?s.bitrate+'kbps':'',s.tags?s.tags.split(',')[0]:''].filter(Boolean).join(' · ')||'Uganda',
+    url:s.url_resolved||s.url, fav:s.favicon||'', icon:'📻', votes:s.votes||0 };
+}
+
+// ===== Scan =====
+async function scan(){
+  scanBtn.disabled=true; scanBtn.textContent='⏳ Scanning…';
+  tab='stations'; syncTabs();
+  renderStatus('<div class="spin"></div><div>Scanning for available Uganda stations…</div>');
+  try{
+    const raw = await apiFetch('/json/stations/bycountrycodeexact/UG?hidebroken=true&order=votes&reverse=true&limit=120');
+    const seen=new Set(); stations=[];
+    for(const s of raw){
+      const n=(s.name||'').trim().toLowerCase();
+      if(!n||seen.has(n)) continue; if(!(s.url_resolved||s.url)) continue;
+      seen.add(n); stations.push(normalize(s));
+    }
+    await clearStore('cache');
+    for(const s of stations) await put('cache',s);
+    await setKV('lastScan', Date.now());
+    render();
+  }catch(e){
+    renderStatus('<div>Couldn’t reach the station directory.</div><div style="margin-top:6px">Check your internet and tap Scan again. Cached stations still work if you scanned before.</div>');
+  }finally{
+    scanBtn.disabled=false; scanBtn.textContent='🔄 Scan Uganda';
+  }
+}
+
+// ===== Render =====
+function syncTabs(){
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
+  searchbar.classList.toggle('show', tab==='stations');
+}
+function renderStatus(html){ listEl.innerHTML='<div class="status-row">'+html+'</div>'; }
+function render(){
+  syncTabs();
+  if(tab==='stations'){
+    let items = stations;
+    if(filter){ const f=filter.toLowerCase(); items=items.filter(s=>s.name.toLowerCase().includes(f)||s.desc.toLowerCase().includes(f)); }
+    if(!stations.length){ renderStatus('<div>No stations loaded yet.</div><div style="margin-top:6px">Tap <b>🔄 Scan Uganda</b> to load the current list.</div>'); return; }
+    if(!items.length){ renderStatus('<div>No matches for “'+esc(filter)+'”.</div>'); return; }
+    listEl.innerHTML = items.map(s=>card(s,{fav:true})).join('');
+  } else if(tab==='favorites'){
+    if(!favorites.length){ renderStatus('<div>No favorites yet.</div><div style="margin-top:6px">Tap the ☆ on any station to save it here.</div>'); return; }
+    listEl.innerHTML = favorites.map(s=>card(s,{fav:true})).join('');
+  } else {
+    let html = '<div class="section-h">My Stream URLs <button class="add-inline" id="addInline">+ Add</button></div>';
+    html += customs.length ? customs.map(s=>card(s,{del:true})).join('') : '<div class="status-row">No custom stations. Tap <b>+ Add</b> to enter a stream URL manually.</div>';
+    listEl.innerHTML = html;
+    const ai=document.getElementById('addInline'); if(ai) ai.onclick=openModal;
+  }
+  bindCards();
+}
+function card(s,opt){
+  const active = current&&current.id===s.id;
+  const isFav = favorites.some(f=>f.id===s.id);
+  const iconHtml = s.fav ? `<img src="${esc(s.fav)}" onerror="this.style.display='none';this.parentNode.textContent='📻'">` : (s.icon||'📻');
+  return `<div class="station ${active?'active':''}" data-id="${s.id}">
+    <div class="tap"><div class="ico">${iconHtml}</div>
+      <div class="meta"><div class="name">${esc(s.name)}</div><div class="desc">${esc(s.desc||s.url)}</div></div>
+      ${active&&!audio.paused?'<div class="live-dot"></div>':''}</div>
+    ${opt.fav?`<button class="fav ${isFav?'on':''}">${isFav?'★':'☆'}</button>`:''}
+    ${opt.del?'<button class="del">✕</button>':''}
+  </div>`;
+}
+function bindCards(){
+  listEl.querySelectorAll('.station').forEach(el=>{
+    const id=el.dataset.id;
+    el.querySelector('.tap').onclick=()=>select(id);
+    const fav=el.querySelector('.fav'); if(fav) fav.onclick=e=>{e.stopPropagation();toggleFav(id);};
+    const del=el.querySelector('.del'); if(del) del.onclick=e=>{e.stopPropagation();removeCustom(id);};
+  });
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function allStations(){return [...stations,...favorites,...customs];}
+
+// ===== Playback =====
+function select(id){
+  const s=allStations().find(x=>x.id===id); if(!s)return;
+  current=s; audio.src=s.url;
+  nowName.textContent=s.name;
+  artEl.innerHTML = s.fav?`<img src="${esc(s.fav)}" onerror="this.parentNode.textContent='📻'">`:'📻';
+  setStatus('Connecting…','buffering'); playBtn.disabled=false;
+  audio.play().catch(()=>setStatus('Tap ▶ to start',''));
+  setKV('last',id); render(); mediaSession();
+}
+function setStatus(t,c){nowStatus.textContent=t;nowStatus.className='s'+(c?' '+c:'');}
+playBtn.onclick=()=>{ if(!current)return; audio.paused?audio.play().catch(()=>setStatus('Could not play stream','err')):audio.pause(); };
+audio.addEventListener('playing',()=>{setStatus('● Live','live');playBtn.textContent='❚❚';render();mediaSession();});
+audio.addEventListener('pause',()=>{if(current)setStatus('Paused','');playBtn.textContent='▶';render();});
+audio.addEventListener('waiting',()=>setStatus('Buffering…','buffering'));
+audio.addEventListener('stalled',()=>setStatus('Buffering…','buffering'));
+audio.addEventListener('error',()=>{setStatus('Stream unavailable — try another','err');playBtn.textContent='▶';render();});
+volEl.addEventListener('input',()=>{audio.volume=volEl.value/100;setKV('vol',volEl.value);});
+
+// ===== Favorites =====
+async function toggleFav(id){
+  const s=allStations().find(x=>x.id===id); if(!s)return;
+  const i=favorites.findIndex(f=>f.id===id);
+  if(i>=0){favorites.splice(i,1);await del('favorites',id);}
+  else{favorites.push(s);await put('favorites',s);}
+  render();
+}
+
+// ===== Custom URLs =====
+const modalBg=document.getElementById('modalBg');
+function openModal(){document.getElementById('inName').value='';document.getElementById('inUrl').value='';modalBg.classList.add('show');}
+document.getElementById('cancelBtn').onclick=()=>modalBg.classList.remove('show');
+modalBg.onclick=e=>{if(e.target===modalBg)modalBg.classList.remove('show');};
+document.getElementById('saveBtn').onclick=async()=>{
+  const name=document.getElementById('inName').value.trim();
+  let url=document.getElementById('inUrl').value.trim();
+  if(!name||!url){alert('Enter both a name and a stream URL.');return;}
+  if(!/^https?:\/\//i.test(url))url='https://'+url;
+  const s={id:'c'+Date.now(),name,desc:'Custom stream',url,fav:'',icon:'📶'};
+  customs.push(s); await put('custom',s); modalBg.classList.remove('show'); render();
+};
+async function removeCustom(id){
+  if(!confirm('Remove this station?'))return;
+  customs=customs.filter(s=>s.id!==id); await del('custom',id);
+  if(current&&current.id===id){audio.pause();audio.src='';current=null;nowName.textContent='Nothing playing';setStatus('Tap a station to start','');playBtn.disabled=true;}
+  render();
+}
+
+// ===== Media session =====
+function mediaSession(){
+  if(!('mediaSession'in navigator)||!current)return;
+  navigator.mediaSession.metadata=new MediaMetadata({title:current.name,artist:'Oola Radio',album:current.desc||''});
+  navigator.mediaSession.setActionHandler('play',()=>audio.play());
+  navigator.mediaSession.setActionHandler('pause',()=>audio.pause());
+}
+
+// ===== Tabs & search =====
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;filter='';document.getElementById('searchIn').value='';render();});
+document.getElementById('searchIn').addEventListener('input',e=>{filter=e.target.value;render();});
+scanBtn.onclick=scan;
+
+// ===== Init =====
+(async()=>{
+  try{await openDB();}catch(e){}
+  try{ stations=await getAll('cache'); favorites=await getAll('favorites'); customs=await getAll('custom'); }catch(e){}
+  const v=await getKV('vol'); if(v!=null)volEl.value=v; audio.volume=volEl.value/100;
+  render();
+  const last=await getKV('last');
+  if(last){const s=allStations().find(x=>x.id===last); if(s){current=s;nowName.textContent=s.name;artEl.innerHTML=s.fav?`<img src="${esc(s.fav)}">`:'📻';setStatus('Tap ▶ to resume','');audio.src=s.url;playBtn.disabled=false;render();}}
+  if(!stations.length && navigator.onLine){ scan(); }
+})();
+
+// ===== Service worker =====
+if('serviceWorker'in navigator){
+  const sw=`const C='oola-radio-v2';
+    self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(C).then(c=>c.addAll(['./'])));});
+    self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
+    self.addEventListener('fetch',e=>{
+      const u=e.request.url;
+      if(e.request.destination==='audio'||/stream|\\.mp3|\\.aac|icecast|shoutcast|radio-browser/i.test(u))return;
+      if(e.request.mode==='navigate'){e.respondWith(fetch(e.request).catch(()=>caches.match('./')));return;}
+      e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).then(res=>{const cp=res.clone();caches.open(C).then(c=>c.put(e.request,cp));return res;}).catch(()=>r)));
+    });`;
+  navigator.serviceWorker.register(URL.createObjectURL(new Blob([sw],{type:'application/javascript'}))).catch(()=>{});
+}
+</script>
+</body>
+</html>
